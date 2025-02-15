@@ -1,6 +1,10 @@
 package handler
 
-import "github.com/Flikest/PingviMessenger/internal/services"
+import (
+	"net/http"
+
+	"github.com/Flikest/PingviMessenger/internal/services"
+)
 
 type Handler struct {
 	Service *services.Service
@@ -8,4 +12,8 @@ type Handler struct {
 
 func InitHandler(s *services.Service) *Handler {
 	return &Handler{Service: s}
+}
+
+func (h Handler) NewRouter() {
+	http.HandleFunc("/mesenger", h.Service.Correspondence)
 }
