@@ -60,3 +60,8 @@ type (
 		Posts Post      `json:"posts"`
 	}
 )
+
+// Read implements io.Reader.
+func (m *Msg) Read(p []byte) (n int, err error) {
+	panic("unimplemented")
+}

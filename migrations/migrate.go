@@ -6,22 +6,26 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/github"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func CreateMigrations(db *sql.DB, filePath string) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		slog.Debug("error creating driver")
+		slog.Info("error during migration: ", err)
 	}
 
 	migration, err := migrate.NewWithDatabaseInstance(
 		filePath,
 		"postgres", driver)
 	if err != nil {
-		slog.Debug("error during migration")
+		slog.Info("error during migration: ", err)
 	}
 
-	migration.Up()
-	slog.Debug("migrations completed")
+	err = migration.Up()
+	if err != nil {
+		slog.Info("migration dont up: ", err)
+	} else {
+		slog.Info("migrations completed")
+	}
 }

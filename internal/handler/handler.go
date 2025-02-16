@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"net/http"
-
 	"github.com/Flikest/PingviMessenger/internal/services"
+	"github.com/gorilla/mux"
 )
 
 type Handler struct {
@@ -14,6 +13,8 @@ func InitHandler(s *services.Service) *Handler {
 	return &Handler{Service: s}
 }
 
-func (h Handler) NewRouter() {
-	http.HandleFunc("/mesenger", h.Service.Correspondence)
+func (h Handler) InitRouter() *mux.Router {
+	r := mux.NewRouter()
+	r.HandleFunc("/mesenger", h.Service.Correspondence)
+	return r
 }

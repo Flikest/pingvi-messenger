@@ -29,16 +29,17 @@ CREATE TABLE IF NOT EXISTS users(
 
 CREATE TABLE IF NOT EXISTS chats(
     id UUID UNIQUE NOT NULL,
-    chat_name UUID UNIQUE NOT NULL,
+    name UUID UNIQUE NOT NULL,
+    img JSON
     messages msg,
-    is_pablic BOOLEAN DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS groops(
     id UUID UNIQUE NOT NULL,
+    name VARCHAR(1000),
     messages msg,
     participants UUID[] NOT NULL,
-
+    is_pablic BOOLEAN DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS channels(
