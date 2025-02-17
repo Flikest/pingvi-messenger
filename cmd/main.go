@@ -36,6 +36,8 @@ func main() {
 
 	if err := http.ListenAndServe(":9000", h); err != nil {
 		log.Debug("server not started", err)
+	} else {
+		log.Info("server started on port:", "9000")
 	}
-	log.Debug("server started on port:", "9000")
+
 }

@@ -1,11 +1,14 @@
 package services
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 
-	"github.com/Flikest/PingviMessenger/internal/entity"
 	"github.com/Flikest/PingviMessenger/internal/storage"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,10 +17,15 @@ type Service struct {
 	Storage *storage.Storage
 }
 
-var upgreader = websocket.Upgrader{
-	ReadBufferSize:    1024,
-	WriteBufferSize:   1024,
-	EnableCompression: true,
+type tokenClaims struct {
+	jwt.StandardClaims
+	ID uuid.UUID `json:"id"`
+}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
 func InitService(s *storage.Storage) *Service {
@@ -25,51 +33,43 @@ func InitService(s *storage.Storage) *Service {
 }
 
 func (s Service) Correspondence(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgreader.Upgrade(w, r, nil)
+
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Debug("error during update: ", err)
+		slog.Info("пиздык системе, переделывай!!!: ", err)
 	}
-	defer ws.Close()
-
-	if r.Header.Get("Upgrade") != "websocket" {
-		return 
-	}
-
-	if r.Header.Get("Connection") != "Upgrade" {
-		return
-	}
-
-	swk := r.Header.Get("Sec-WebSocket-Key") 
-	if swk == "" {
-		return
-	}
-
-	goud := 
-
-	var body entity.Msg = entity.Msg{}
 	for {
-		err := ws.ReadJSON(&body)
+		// read in a message
+		messageType, p, err := conn.ReadMessage()
 		if err != nil {
-			slog.Info("reading error: ", err)
+			slog.Info("и тут пиде, а что ты хотел, стив джобс хуев:", err)
 			return
 		}
-		if err := ws.WriteJSON(&body); err != nil {
-			slog.Info("writing error: ", err)
+		// print out that message for clarity
+		slog.Info(string(p))
+		if err := conn.WriteMessage(messageType, p); err != nil {
+			slog.Info("ну давай блять", err)
 			return
 		}
-		w.Write([]byte("привет"))
-		s.Storage.AddMessages(body, body.User_ID)
 	}
 }
 
-func (s Service) UpdateMessage(w http.ResponseWriter, r *http.Request) {
+func ParseTocken(accessToken string) (uuid.UUID, error) {
+	token, err := jwt.ParseWithClaims(accessToken, &tokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
 
-}
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
 
-func (s Service) DeleteMesage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := token.Claims.(*tokenClaims)
+	if !ok {
+		return uuid.Nil, errors.New("token claims are not of type *tokenClaims")
+	}
 
-}
-
-func (s Service) GetUser(w http.ResponseWriter, r *http.Request) {
-
+	return claims.ID, nil
 }

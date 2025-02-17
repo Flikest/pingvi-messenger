@@ -4,7 +4,10 @@ go 1.22.0
 
 require github.com/golang-migrate/migrate/v4 v4.18.2
 
-require github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
