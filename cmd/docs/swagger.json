@@ -1,0 +1,10 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is pengvi messenger.",
+        "title": "Pingue API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {}
+}
