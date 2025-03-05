@@ -21,7 +21,7 @@ func (h Handler) InitRouter() *gin.Engine {
 
 	v1 := router.Group("/chats")
 	{
-		v1.GET("/messenger/:id", h.Service.Сorrespondence)
+		v1.GET("/messenger/", h.Service.Сorrespondence)
 		v1.GET("/:chat_name", h.Service.GetChat)
 		v1.POST("/", h.Service.CreateChat)
 		v1.PUT("/", h.Service.UpdateChat)

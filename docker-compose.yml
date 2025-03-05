@@ -9,14 +9,3 @@ services:
       POSTGRES_DB: ${DB_NAME}
     ports:
       - 5431:5432
-
-  rabbitmq:
-    image: rabbitmq:3.9
-    hostname: my-rabbit
-    environment:
-      RABBITMQ_DEFAULT_USER: ${MQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${MQ_PASS}
-    volumes:
-      - ./rabbitmq:/var/lib/rabbitmq
-    ports:
-      - 5673:5672

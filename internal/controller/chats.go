@@ -1,13 +1,16 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Flikest/PingviMessenger/internal/entity"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
 )
 
@@ -15,6 +18,24 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func jwtPayloadFromRequest(tokenString string) (string, error) {
+
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("SECRET_KEY")), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	result, err := json.Marshal(claims["sub"])
+	if err != nil {
+		slog.Info("Error: %s", err)
+		return "", err
+	}
+	return string(result), nil
 }
 
 // @Accept
@@ -28,6 +49,21 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 	}
 	defer conn.Close()
 
+	var token string = ctx.Request.Header.Get("pinguiJWT")
+
+	pyload, err := jwtPayloadFromRequest(token)
+	if err != nil {
+		ctx.Redirect(302, "https://web-pingui/login/")
+	}
+
+	chat_ID := ctx.Query("chat_id")
+
+	quantity, err := s.Storage.CountMessages(chat_ID)
+	if err != nil {
+		slog.Info("error when querying the database, nothing found: ", err)
+		return
+	}
+
 	for {
 		messageType, p, err := conn.ReadMessage()
 		if err != nil {
@@ -40,12 +76,14 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 			return
 		}
 
-		chat_id := r.PathValue("id")
 		messege := entity.Messege{
+			Chat_ID:     chat_ID,
+			Message_ID:  quantity,
+			Sender_ID:   pyload,
 			Content:     p,
 			SendingTime: time.Now(),
 		}
-		s.Storage.AddMesage(chat_id, messege)
+		s.Storage.AddMesage(messege)
 	}
 }
 
@@ -65,11 +103,11 @@ func (s Service) CreateChat(ctx *gin.Context) {
 	body := entity.Chat{}
 	ctx.BindJSON(&body)
 
-	status, err := s.Storage.CreateChat(body.Creator_id)
+	_, err := s.Storage.CreateChat(body.ID, body)
 	if err != nil {
-		ctx.JSON(status, "failed to create chat")
+		ctx.JSON(http.StatusBadRequest, "failed to create chat")
 	} else {
-		ctx.JSON(status, "chat created")
+		ctx.JSON(http.StatusOK, "chat created")
 	}
 
 }
@@ -102,8 +140,9 @@ func (s Service) DeleteChat(ctx *gin.Context) {
 // @Router       message/{messege_Id} [get]
 func (s Service) GetMessage(ctx *gin.Context) {
 	message_id := ctx.Param("message_id")
+	chat_id := ctx.Param("chat_id")
 
-	result, err := s.Storage.GetMessage(message_id)
+	result, err := s.Storage.GetMessage(chat_id, message_id)
 	if err != nil {
 		ctx.JSON(404, "message not found!")
 	} else {
@@ -116,7 +155,7 @@ func (s Service) UpdateMessage(ctx *gin.Context) {
 	body := entity.Messege{}
 	ctx.BindJSON(&body)
 
-	status, err := s.Storage.UpdateMessage(body.Message_id, body)
+	status, err := s.Storage.UpdateMessage(body)
 	if err != nil {
 		ctx.JSON(status, "the message was not updated!")
 	} else {
@@ -138,16 +177,15 @@ func (s Service) DelelteMessage(ctx *gin.Context) {
 
 // @Router       users/{chat_id} [post]
 func (s Service) AddUserChat(ctx *gin.Context) {
-	chat_id := ctx.Param("chat_id")
 
-	body := entity.User{}
+	body := entity.Participant{}
 	ctx.BindJSON(&body)
 
-	status, err := s.Storage.AddUser(chat_id, body.ID)
+	status, err := s.Storage.AddUser(body.Chat_ID, body.User_ID)
 	if err != nil {
 		ctx.JSON(status, "Failed to add user")
 	} else {
-		reply := fmt.Sprintf("user %s added to chat %s", body.ID, chat_id)
+		reply := fmt.Sprintf("user %s added to chat %s", body.Chat_ID, body.User_ID)
 		ctx.JSON(status, reply)
 	}
 }
@@ -157,9 +195,7 @@ func (s Service) DropUserFromChat(ctx *gin.Context) {
 	body := entity.Participant{}
 	ctx.BindJSON(&body)
 
-	chat_id := ctx.Param("chat_id")
-
-	status, err := s.Storage.DropUserFromChat(body, chat_id)
+	status, err := s.Storage.DropUserFromChat(body.User_ID, body.Chat_ID)
 	if err != nil {
 		ctx.JSON(status, "failed to kick out user")
 	} else {

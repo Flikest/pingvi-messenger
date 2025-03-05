@@ -10,8 +10,9 @@ import (
 	"github.com/Flikest/PingviMessenger/internal/storage"
 	"github.com/Flikest/PingviMessenger/migrations"
 	postgresql "github.com/Flikest/PingviMessenger/pkg/clientdb/postgresql"
+	"github.com/Flikest/PingviMessenger/pkg/logger"
 	"github.com/Flikest/PingviMessenger/rabbitmq"
-	"github.com/gofiber/fiber/v2/log"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 )
 
@@ -25,6 +26,8 @@ func main() {
 		slog.Info("error reading .env: ", err)
 	}
 
+	log := logger.InitLogger(os.Getenv("LVL_DEPLOYMENT"))
+
 	db, err := postgresql.NewDatabase(&postgresql.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
@@ -34,22 +37,20 @@ func main() {
 		SSLMode:  os.Getenv("DB_SSLMODE"),
 	})
 	if err != nil {
-		panic("error connecting to database")
+		log.Info("error connecting to database")
 	}
 
-	migrations.CreateMigrations(db, "file://C:/Users/User/Desktop/pingviMessenger/migrations/sql/")
-
-	rabbitmq.Consume(db)
+	migrations.CreateMigrations(db, "file://pingviMessenger/migrations/sql/")
 
 	storage := storage.NewStorage(db, context.Background())
 	services := services.NewServices(storage)
 	handler := handler.NewHandler(services)
-	h := handler.InitRouter()
+	router := handler.InitRouter()
 
-	if err := h.Run(":9000"); err != nil {
-		log.Debug("server not started", err)
-	} else {
-		log.Info("server started on port:", "9000")
+	if err := router.Run(":9000"); err != nil {
+		log.Info("server not runing")
 	}
+	log.Info("server is starting")
 
+	rabbitmq.Consume(db)
 }

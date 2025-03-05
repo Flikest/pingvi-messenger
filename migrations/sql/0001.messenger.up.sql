@@ -2,26 +2,33 @@ CREATE TABLE IF NOT EXISTS users(
     id UUID UNIQUE NOT NULL,
     name VARCHAR(1000) UNIQUE NOT NULL,
     pass VARCHAR(1000) NOT NULL,
+    email VARCHAR(250) NOT NULL,
+    avatar TEXT,
     about_me TEXT
 );
 
-CREATE TYPE IF NOT EXISTS messege (
-    id BIGSERIAL NOT NULL,
-    content TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS messeges(
+    chat_id UUID NOT NULL,
+    message_id INT NOT NULL
+    sender_id UUID,
+    content BLOB NOT NULL,
     sending_time TIME NOT NULL
 );
 
-CREATE TYPE IF NOT EXISTS participant(
+CREATE TABLE IF NOT EXISTS contacts(
     user_id UUID NOT NULL,
-    name varchar(1000) NOT NULL,
-    about_me TEXT
+    contact_id UUID NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chats(
     id UUID UNIQUE NOT NULL,
     name VARCHAR(1000) NOT NULL,
-    img TEXT
-    messages message,
-    participants participant[] NOT NULL
+    avatar TEXT,
+    unique_link_to_join TEXT
 );
 
+CREATE TABLE IF NOT EXISTS participants(
+    chat_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    is_admin FLOAT
+);

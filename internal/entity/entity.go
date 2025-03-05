@@ -11,36 +11,37 @@ type (
 		ID       uuid.UUID `json:"id"`
 		Name     string    `json:"name"`
 		Pass     string    `json:"pass"`
+		Email    string    `json:"email"`
+		Avatar   string    `json:"avatar"`
 		About_me string    `json:"about_me"`
 	}
 
 	Messege struct {
-		Message_id  int       `json:"message_id"`
-		User_id     uuid.UUID `json:"User_id"`
+		Chat_ID     string    `json:"chat_id"`
+		Message_ID  int       `json:"message_id"`
+		Sender_ID   string    `json:"sender_id"`
 		Content     []byte    `json:"content"`
 		SendingTime time.Time `json:"sending_time"`
 	}
 
-	Sticker struct {
-		Url_img string `json:"img"`
-	}
-
-	StickerPack struct {
-		Name     string    `json:"name"`
-		Сreator  string    `json:"name_creator"`
-		Stickers []Sticker `json:"stickers"`
+	Contact struct {
+		User_id    uuid.UUID `json:"user_id"`
+		Contact_id uuid.UUID `json:"contact_id"`
 	}
 
 	Participant struct {
-		User_id  uuid.UUID `json:"user_id"`
-		Name     string    `json:"name"`
-		About_me string    `json:"about_me"`
+		Chat_ID string `json:"chat_id"`
+		User_ID string `json:"user_id"`
+		IsAdmin bool   `json:"is_admin"`
 	}
 
 	Chat struct {
-		ID         uuid.UUID `json:"chat_id"`
-		Creator_id uuid.UUID `json:"creator_id"`
-		Name       string    `json:"chat_name"`
-		Img        string    `json:"chat_img"`
+		ID               string `json:"chat_id"`
+		Name             string `json:"chat_name"`
+		Avatar           string `json:"chat_avatar"`
+		UniqueLinkToJoin string `json:"unique_link_to_join"`
+	}
+
+	Sticker struct {
 	}
 )

@@ -3,13 +3,15 @@ package rabbitmq
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
+	"os"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func Consume(db *sql.DB) string {
-	conn, err := amqp.Dial("")
+func Consume(db *sql.DB) {
+	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@localhost:5672/", os.Getenv("MQ_USER"), os.Getenv("MQ_PASS")))
 	if err != nil {
 		slog.Debug("Failed to connect to RabbitMQ: ", err)
 	}
@@ -94,6 +96,4 @@ func Consume(db *sql.DB) string {
 	db.ExecContext(context.Background(), "INSERT INTO users (id, name, pass, about_me) VALUES ($1, $2, $3, $4)", result[0], result[1], result[2], result[3])
 
 	result = nil
-
-	return body
 }
