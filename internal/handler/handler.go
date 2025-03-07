@@ -2,6 +2,7 @@ package handler
 
 import (
 	services "github.com/Flikest/PingviMessenger/internal/controller"
+	"github.com/Flikest/PingviMessenger/pkg/middleware"
 	"github.com/gin-gonic/gin"
 
 	swaggerFiles "github.com/swaggo/files"
@@ -20,6 +21,8 @@ func (h Handler) InitRouter() *gin.Engine {
 	router := gin.Default()
 
 	v1 := router.Group("/chats")
+
+	v1.Use(middleware.IsAuthorized)
 	{
 		v1.GET("/messenger/", h.Service.Сorrespondence)
 		v1.GET("/:chat_name", h.Service.GetChat)
@@ -29,6 +32,8 @@ func (h Handler) InitRouter() *gin.Engine {
 	}
 
 	v2 := router.Group("/message")
+
+	v2.Use(middleware.IsAuthorized)
 	{
 		v2.GET("/:message_id", h.Service.GetMessage)
 		v2.PUT("/", h.Service.UpdateMessage)
@@ -36,6 +41,8 @@ func (h Handler) InitRouter() *gin.Engine {
 	}
 
 	v3 := router.Group("/users")
+
+	v3.Use(middleware.IsAuthorized)
 	{
 		v3.POST("/:chat_id", h.Service.AddUserChat)
 		v3.DELETE("/chat_id", h.Service.DropUserFromChat)

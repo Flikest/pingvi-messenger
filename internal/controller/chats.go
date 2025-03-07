@@ -49,7 +49,7 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 	}
 	defer conn.Close()
 
-	var token string = ctx.Request.Header.Get("pinguiJWT")
+	var token string = ctx.GetHeader("pinguiJWT")
 
 	pyload, err := jwtPayloadFromRequest(token)
 	if err != nil {
