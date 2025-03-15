@@ -36,8 +36,6 @@ func (h Handler) InitRouter() *gin.Engine {
 	v2.Use(middleware.IsAuthorized)
 	{
 		v2.GET("/:message_id", h.Service.GetMessage)
-		v2.PUT("/", h.Service.UpdateMessage)
-		v2.DELETE("/:message_id", h.Service.DelelteMessage)
 	}
 
 	v3 := router.Group("/users")

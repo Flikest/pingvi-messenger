@@ -20,6 +20,12 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+type RequestMessage struct {
+	ID        string `json:"id"`
+	Content   string `json:"content"`
+	Operation string `json:"operation"`
+}
+
 func jwtPayloadFromRequest(tokenString string) (string, error) {
 
 	claims := jwt.MapClaims{}
@@ -65,25 +71,53 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 	}
 
 	for {
-		messageType, p, err := conn.ReadMessage()
+		var msg RequestMessage
+		err := conn.ReadJSON(msg)
+
 		if err != nil {
 			slog.Debug("ugh I don't want to accept this message", err)
 			return
 		}
 
-		if err := conn.WriteMessage(messageType, p); err != nil {
+		if err := conn.WriteJSON(RequestMessage{}); err != nil {
 			slog.Info("message not sent", err)
 			return
 		}
 
-		messege := entity.Messege{
-			Chat_ID:     chat_ID,
-			Message_ID:  quantity,
-			Sender_ID:   pyload,
-			Content:     p,
-			SendingTime: time.Now(),
+		switch msg.Operation {
+		case "delete":
+			status, err := s.Storage.DelelteMessage(msg.ID)
+			if err != nil {
+				ctx.JSON(status, "the message was not updated!")
+			} else {
+				ctx.JSON(status, "message updated!")
+			}
+		case "update":
+			body := entity.Messege{
+				Chat_ID:     chat_ID,
+				Message_ID:  quantity + 1,
+				Sender_ID:   pyload,
+				Content:     []byte(msg.Content),
+				SendingTime: time.Now(),
+			}
+			status, err := s.Storage.UpdateMessage(body)
+			if err != nil {
+				ctx.JSON(status, "the message was not updated!")
+			} else {
+				ctx.JSON(status, "message updated!")
+			}
+
+		default:
+			messege := entity.Messege{
+				Chat_ID:     chat_ID,
+				Message_ID:  quantity + 1,
+				Sender_ID:   pyload,
+				Content:     []byte(msg.Content),
+				SendingTime: time.Now(),
+			}
+			s.Storage.AddMesage(messege)
 		}
-		s.Storage.AddMesage(messege)
+
 	}
 }
 
@@ -147,31 +181,6 @@ func (s Service) GetMessage(ctx *gin.Context) {
 		ctx.JSON(404, "message not found!")
 	} else {
 		ctx.JSON(http.StatusOK, result)
-	}
-}
-
-// @Router       message/ [put]
-func (s Service) UpdateMessage(ctx *gin.Context) {
-	body := entity.Messege{}
-	ctx.BindJSON(&body)
-
-	status, err := s.Storage.UpdateMessage(body)
-	if err != nil {
-		ctx.JSON(status, "the message was not updated!")
-	} else {
-		ctx.JSON(status, "message updated!")
-	}
-}
-
-// @Router       message/{messege_Id} [delete]
-func (s Service) DelelteMessage(ctx *gin.Context) {
-	message_id := ctx.Param("message_id")
-
-	status, err := s.Storage.DelelteMessage(message_id)
-	if err != nil {
-		ctx.JSON(status, "the message was not updated!")
-	} else {
-		ctx.JSON(status, "message updated!")
 	}
 }
 
