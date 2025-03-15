@@ -12,6 +12,7 @@ import (
 	postgresql "github.com/Flikest/PingviMessenger/pkg/clientdb/postgresql"
 	"github.com/Flikest/PingviMessenger/pkg/logger"
 	"github.com/Flikest/PingviMessenger/rabbitmq"
+	"github.com/gin-contrib/cors"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 )
@@ -46,6 +47,10 @@ func main() {
 	services := services.NewServices(storage)
 	handler := handler.NewHandler(services)
 	router := handler.InitRouter()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"https://pinguigram.com"},
+	}))
 
 	if err := router.Run(":9000"); err != nil {
 		log.Info("server not runing")
