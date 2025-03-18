@@ -86,36 +86,45 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 
 		switch msg.Operation {
 		case "delete":
-			status, err := s.Storage.DelelteMessage(msg.ID)
-			if err != nil {
-				ctx.JSON(status, "the message was not updated!")
-			} else {
-				ctx.JSON(status, "message updated!")
-			}
+			go func() {
+				status, err := s.Storage.DelelteMessage(msg.ID)
+				if err != nil {
+					ctx.JSON(status, "the message was not updated!")
+				} else {
+					ctx.JSON(status, "message updated!")
+				}
+			}()
 		case "update":
-			body := entity.Messege{
-				Chat_ID:     chat_ID,
-				Message_ID:  quantity + 1,
-				Sender_ID:   pyload,
-				Content:     []byte(msg.Content),
-				SendingTime: time.Now(),
-			}
-			status, err := s.Storage.UpdateMessage(body)
-			if err != nil {
-				ctx.JSON(status, "the message was not updated!")
-			} else {
-				ctx.JSON(status, "message updated!")
-			}
-
+			go func() {
+				body := entity.Messege{
+					Chat_ID:     chat_ID,
+					Message_ID:  quantity,
+					Sender_ID:   pyload,
+					Content:     []byte(msg.Content),
+					SendingTime: time.Now(),
+				}
+				status, err := s.Storage.UpdateMessage(body)
+				if err != nil {
+					ctx.JSON(status, "the message was not updated!")
+				} else {
+					ctx.JSON(status, "message updated!")
+				}
+			}()
 		default:
-			messege := entity.Messege{
-				Chat_ID:     chat_ID,
-				Message_ID:  quantity + 1,
-				Sender_ID:   pyload,
-				Content:     []byte(msg.Content),
-				SendingTime: time.Now(),
-			}
-			s.Storage.AddMesage(messege)
+			go func() {
+				messege := entity.Messege{
+					Chat_ID:     chat_ID,
+					Message_ID:  quantity + 1,
+					Sender_ID:   pyload,
+					Content:     []byte(msg.Content),
+					SendingTime: time.Now(),
+				}
+				go s.Storage.AddMesage(messege)
+				err := conn.WriteJSON(messege)
+				if err != nil {
+					ctx.JSON(http.StatusOK, "the message was not sent")
+				}
+			}()
 		}
 
 	}
