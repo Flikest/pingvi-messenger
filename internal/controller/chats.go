@@ -112,6 +112,9 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 			}()
 		default:
 			go func() {
+				list_chats := s.Storage.DataFromTheStartPage(pyload)
+				go ctx.JSON(http.StatusOK, list_chats)
+
 				messege := entity.Messege{
 					Chat_ID:     chat_ID,
 					Message_ID:  quantity + 1,
@@ -119,7 +122,9 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 					Content:     []byte(msg.Content),
 					SendingTime: time.Now(),
 				}
+
 				go s.Storage.AddMesage(messege)
+
 				err := conn.WriteJSON(messege)
 				if err != nil {
 					ctx.JSON(http.StatusOK, "the message was not sent")

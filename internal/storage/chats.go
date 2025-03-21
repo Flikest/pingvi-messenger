@@ -10,6 +10,29 @@ import (
 	"github.com/google/uuid"
 )
 
+type chatsFromStartPage struct {
+}
+
+func (s Storage) DataFromTheStartPage(user_ID string) []entity.Chat {
+	queryData := "SELECT * FROM chats JOIN messeges ON chats.id=messeges.chat_id WHERE messeges.sender_id = $1"
+
+	rows, err := s.db.QueryContext(s.context, queryData, user_ID)
+	if err != nil {
+		return nil
+	}
+
+	var result = []entity.Chat{}
+
+	for rows.Next() {
+		chat := entity.Chat{}
+		if err := rows.Scan(&chat.ID, &chat.Avatar, &chat.Name); err != nil {
+			return nil
+		}
+		result = append(result, chat)
+	}
+	return result
+}
+
 func (s Storage) CreateChat(creator_ID string, e entity.Chat) (uuid.UUID, error) {
 	id := uuid.New()
 
