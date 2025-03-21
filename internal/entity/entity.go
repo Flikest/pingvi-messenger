@@ -36,10 +36,11 @@ type (
 	}
 
 	Chat struct {
-		ID               string `json:"chat_id"`
-		Name             string `json:"chat_name"`
-		Avatar           string `json:"chat_avatar"`
-		UniqueLinkToJoin string `json:"unique_link_to_join"`
+		ID              string    `json:"chat_id"`
+		Name            string    `json:"chat_name"`
+		Avatar          string    `json:"chat_avatar"`
+		UniqueLinToJoin string    `json:"unique_link_to_join"`
+		Last_seen       time.Time `json:last_seen`
 	}
 
 	Sticker struct {

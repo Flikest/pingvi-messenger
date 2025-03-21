@@ -113,6 +113,11 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 		default:
 			go func() {
 				list_chats := s.Storage.DataFromTheStartPage(pyload)
+
+				if chat_ID != "" {
+					ctx.JSON(http.StatusOK, s.Storage.GetAllMessageFromChat(chat_ID))
+				}
+
 				go ctx.JSON(http.StatusOK, list_chats)
 
 				messege := entity.Messege{

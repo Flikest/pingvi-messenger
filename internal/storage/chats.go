@@ -10,9 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type chatsFromStartPage struct {
-}
-
 func (s Storage) DataFromTheStartPage(user_ID string) []entity.Chat {
 	queryData := "SELECT * FROM chats JOIN messeges ON chats.id=messeges.chat_id WHERE messeges.sender_id = $1"
 
@@ -25,10 +22,29 @@ func (s Storage) DataFromTheStartPage(user_ID string) []entity.Chat {
 
 	for rows.Next() {
 		chat := entity.Chat{}
-		if err := rows.Scan(&chat.ID, &chat.Avatar, &chat.Name); err != nil {
+		if err := rows.Scan(&chat.ID, &chat.Avatar, &chat.Name, &chat.Last_seen); err != nil {
 			return nil
 		}
 		result = append(result, chat)
+	}
+	return result
+}
+
+func (s Storage) GetAllMessageFromChat(chat_ID string) []entity.Messege {
+	query := "SELECT * FROM messeges WHERE chat_id=$1"
+
+	rows, err := s.db.QueryContext(s.context, query, chat_ID)
+	if err != nil {
+		return nil
+	}
+
+	var result = []entity.Messege{}
+	for rows.Next() {
+		var message = entity.Messege{}
+		if err := rows.Scan(&message.Chat_ID, &message.Message_ID, &message.Sender_ID, &message.Content, &message.SendingTime); err != nil {
+			return nil
+		}
+		result = append(result, message)
 	}
 	return result
 }
