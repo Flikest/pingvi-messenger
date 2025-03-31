@@ -17,7 +17,7 @@ func (s Storage) AddPack(e entity.Sticker) {
 
 }
 
-func (s Storage) UpdatePack(id uuid.UUID, body entity.Messege) {
+func (s Storage) UpdatePack(id uuid.UUID, body entity.Message) {
 
 }
 

@@ -16,7 +16,7 @@ type (
 		About_me string    `json:"about_me"`
 	}
 
-	Messege struct {
+	Message struct {
 		Chat_ID     string    `json:"chat_id"`
 		Message_ID  int       `json:"message_id"`
 		Sender_ID   string    `json:"sender_id"`

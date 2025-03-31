@@ -12,11 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/gorilla/websocket"
+	"github.com/savsgio/gotils/uuid"
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
@@ -25,6 +26,10 @@ type RequestMessage struct {
 	Content   string `json:"content"`
 	Operation string `json:"operation"`
 }
+
+var chanDataFromTheStartPage chan []entity.Chat
+var chanCounterMessage chan int
+var chanAllMessageFromChat chan []entity.Message
 
 func jwtPayloadFromRequest(tokenString string) (string, error) {
 
@@ -44,9 +49,12 @@ func jwtPayloadFromRequest(tokenString string) (string, error) {
 	return string(result), nil
 }
 
+func sendMessageInchat(mesage_id uuid.UUID)
+
 // @Accept
 // @Router       ws://localhost:9000/chats/messenger/{id} [get]
 func (s Service) Сorrespondence(ctx *gin.Context) {
+
 	w, r := ctx.Writer, ctx.Request
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -64,18 +72,14 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 
 	chat_ID := ctx.Query("chat_id")
 
-	quantity, err := s.Storage.CountMessages(chat_ID)
-	if err != nil {
-		slog.Info("error when querying the database, nothing found: ", err)
-		return
-	}
+	go s.Storage.CountMessages(chat_ID, chanCounterMessage)
 
 	for {
 		var msg RequestMessage
 		err := conn.ReadJSON(msg)
 
 		if err != nil {
-			slog.Debug("ugh I don't want to accept this message", err)
+			slog.Debug("ugh i don't want to accept this message", err)
 			return
 		}
 
@@ -86,55 +90,44 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 
 		switch msg.Operation {
 		case "delete":
-			go func() {
-				status, err := s.Storage.DelelteMessage(msg.ID)
-				if err != nil {
-					ctx.JSON(status, "the message was not updated!")
-				} else {
-					ctx.JSON(status, "message updated!")
-				}
-			}()
+			status, err := s.Storage.DelelteMessage(msg.ID)
+			if err != nil {
+				ctx.JSON(status, "the message was not updated!")
+			} else {
+				ctx.JSON(status, "message updated!")
+			}
 		case "update":
-			go func() {
-				body := entity.Messege{
-					Chat_ID:     chat_ID,
-					Message_ID:  quantity,
-					Sender_ID:   pyload,
-					Content:     []byte(msg.Content),
-					SendingTime: time.Now(),
-				}
-				status, err := s.Storage.UpdateMessage(body)
-				if err != nil {
-					ctx.JSON(status, "the message was not updated!")
-				} else {
-					ctx.JSON(status, "message updated!")
-				}
-			}()
+
+			body := entity.Message{
+				Chat_ID:     chat_ID,
+				Message_ID:  <-chanCounterMessage,
+				Sender_ID:   pyload,
+				Content:     []byte(msg.Content),
+				SendingTime: time.Now(),
+			}
+			status, err := s.Storage.UpdateMessage(body)
+			if err != nil {
+				ctx.JSON(status, "the message was not updated!")
+			} else {
+				ctx.JSON(status, "message updated!")
+			}
+
 		default:
-			go func() {
-				list_chats := s.Storage.DataFromTheStartPage(pyload)
+			messege := entity.Message{
+				Chat_ID:     chat_ID,
+				Message_ID:  <-chanCounterMessage + 1,
+				Sender_ID:   pyload,
+				Content:     []byte(msg.Content),
+				SendingTime: time.Now(),
+			}
 
-				if chat_ID != "" {
-					ctx.JSON(http.StatusOK, s.Storage.GetAllMessageFromChat(chat_ID))
-				}
+			s.Storage.AddMesage(messege)
 
-				go ctx.JSON(http.StatusOK, list_chats)
+			err := conn.WriteJSON(messege)
+			if err != nil {
+				ctx.JSON(http.StatusOK, "the message was not sent")
+			}
 
-				messege := entity.Messege{
-					Chat_ID:     chat_ID,
-					Message_ID:  quantity + 1,
-					Sender_ID:   pyload,
-					Content:     []byte(msg.Content),
-					SendingTime: time.Now(),
-				}
-
-				go s.Storage.AddMesage(messege)
-
-				err := conn.WriteJSON(messege)
-				if err != nil {
-					ctx.JSON(http.StatusOK, "the message was not sent")
-				}
-			}()
 		}
 
 	}
@@ -229,4 +222,15 @@ func (s Service) DropUserFromChat(ctx *gin.Context) {
 	} else {
 		ctx.JSON(status, "the user will be kicked")
 	}
+}
+
+func (s Service) DataFromTheStartPage(ctx *gin.Context) {
+	var token string = ctx.GetHeader("pinguiJWT")
+
+	pyload, err := jwtPayloadFromRequest(token)
+	if err != nil {
+		ctx.Redirect(302, "https://web-pingui/login/")
+	}
+
+	go s.Storage.DataFromTheStartPage(pyload, chanDataFromTheStartPage)
 }

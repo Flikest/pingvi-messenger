@@ -1,21 +1,20 @@
 package storage
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/Flikest/PingviMessenger/internal/entity"
 	"github.com/google/uuid"
 )
 
-func (s Storage) DataFromTheStartPage(user_ID string) []entity.Chat {
+func (s Storage) DataFromTheStartPage(user_ID string, ch chan []entity.Chat) {
 	queryData := "SELECT * FROM chats JOIN messeges ON chats.id=messeges.chat_id WHERE messeges.sender_id = $1"
 
 	rows, err := s.db.QueryContext(s.context, queryData, user_ID)
 	if err != nil {
-		return nil
+		slog.Info("sql query error", err)
 	}
 
 	var result = []entity.Chat{}
@@ -23,33 +22,33 @@ func (s Storage) DataFromTheStartPage(user_ID string) []entity.Chat {
 	for rows.Next() {
 		chat := entity.Chat{}
 		if err := rows.Scan(&chat.ID, &chat.Avatar, &chat.Name, &chat.Last_seen); err != nil {
-			return nil
+			slog.Info("error retrieving home page data", err)
 		}
 		result = append(result, chat)
 	}
-	return result
+	ch <- result
 }
 
-func (s Storage) GetAllMessageFromChat(chat_ID string) []entity.Messege {
+func (s Storage) GetAllMessageFromChat(chat_ID string, ch chan []entity.Message) {
 	query := "SELECT * FROM messeges WHERE chat_id=$1"
 
 	rows, err := s.db.QueryContext(s.context, query, chat_ID)
 	if err != nil {
-		return nil
+		slog.Info("sql query error", err)
 	}
 
-	var result = []entity.Messege{}
+	var result = []entity.Message{}
 	for rows.Next() {
-		var message = entity.Messege{}
+		var message = entity.Message{}
 		if err := rows.Scan(&message.Chat_ID, &message.Message_ID, &message.Sender_ID, &message.Content, &message.SendingTime); err != nil {
-			return nil
+			slog.Info("can't read data from db", err)
 		}
 		result = append(result, message)
 	}
-	return result
+	ch <- result
 }
 
-func (s Storage) CreateChat(creator_ID string, e entity.Chat) (uuid.UUID, error) {
+func (s Storage) CreateChat(creator_ID string, e entity.Chat, ch chan uuid.UUID) {
 	id := uuid.New()
 
 	uniqueLink := fmt.Sprintf("http://pingui.org/messenger/?%s", id)
@@ -60,35 +59,34 @@ func (s Storage) CreateChat(creator_ID string, e entity.Chat) (uuid.UUID, error)
 	_, err := s.db.ExecContext(s.context, queryChat, id, e.Name, e.Avatar, uniqueLink)
 	if err != nil {
 		slog.Info("failed to create chat: ", err)
-		return uuid.Nil, err
 	}
 
 	_, err = s.db.ExecContext(s.context, queryParticipants, id, creator_ID, true)
 	if err != nil {
 		slog.Info("error adding creator: ", err)
-		return uuid.Nil, err
 	}
 
-	return id, nil
+	ch <- id
 }
 
-func (s Storage) GetChat(chat_ID string) (*sql.Rows, error) {
+func (s Storage) GetChat(chat_ID string, ch chan entity.Chat) {
 	query := "SELECT * FROM chats WHERE id=$1"
 
-	chat, err := s.db.QueryContext(s.context, query, chat_ID)
+	var chat entity.Chat
+
+	err := s.db.QueryRowContext(s.context, query, chat_ID).Scan(&chat.ID, &chat.Name, &chat.Avatar, &chat.UniqueLinToJoin, &chat.Last_seen)
 	if err != nil {
-		slog.Info("chat not found")
-		return nil, errors.New("nothing found!")
+		slog.Info("chat not found: ", err)
 	}
-	return chat, nil
+
+	ch <- chat
 }
 
 func (s Storage) UpdateChat(body entity.Chat) (int, error) {
 	query := "UPDATE chats SET name=$1, avatar=$2 WHERE id=$3"
 	_, err := s.db.ExecContext(s.context, query, body.Name, body.Avatar, body.ID)
 	if err != nil {
-		slog.Info("failed to update data", err)
-		return 404, err
+		slog.Info("failed to update data: ", err)
 	}
 	return 200, nil
 }
@@ -104,29 +102,33 @@ func (s Storage) DeleteChat(chat_ID string) (int, error) {
 	return 200, nil
 }
 
-func (s Storage) AddMesage(message entity.Messege) (int, error) {
+func (s Storage) AddMesage(message entity.Message) (int, error) {
 	query := "INSERT INTO messeges (chat_id, message_id, sender_id, content, sending_time) VALUES ($1, $2, $3, $4, $5)"
 
 	_, err := s.db.ExecContext(s.context, query, message.Chat_ID, message.Message_ID, message.Sender_ID, []byte(message.Content), message.SendingTime)
 	if err != nil {
 		slog.Info("error messages added: ", err)
-		return 404, err
+		return http.StatusBadGateway, err
 	}
 	slog.Info("messages added")
-	return 200, nil
+
+	return http.StatusOK, nil
 }
 
-func (s Storage) GetMessage(chat_ID string, message_ID string) (*sql.Row, error) {
+func (s Storage) GetMessage(chat_ID string, message_ID string, ch chan entity.Message) {
 	query := "SELECT mesegeges FROM chats where chat_id=$1 AND messege_id=$2"
 
-	message := s.db.QueryRowContext(s.context, query, chat_ID, message_ID)
-	if message == nil {
-		return nil, errors.New("message not found!")
+	var message entity.Message
+
+	row := s.db.QueryRowContext(s.context, query, chat_ID, message_ID).Scan(&message.Chat_ID, &message.Message_ID, &message.Sender_ID, &message.Content, &message.SendingTime)
+	if row == nil {
+		slog.Info("message not found!")
 	}
-	return message, nil
+
+	ch <- message
 }
 
-func (s Storage) UpdateMessage(e entity.Messege) (int, error) {
+func (s Storage) UpdateMessage(e entity.Message) (int, error) {
 	query := "UPDATE messeges SET content=$1 where chat_ID=$2 mesasge_ID=$3"
 
 	_, err := s.db.ExecContext(s.context, query, []byte(e.Content), e.Chat_ID, e.Message_ID)
@@ -143,9 +145,9 @@ func (s Storage) DelelteMessage(message_ID string) (int, error) {
 	_, err := s.db.ExecContext(s.context, query, message_ID)
 	if err != nil {
 		slog.Info("failed to delete message")
-		return 404, err
+		return http.StatusBadGateway, err
 	}
-	return 200, nil
+	return http.StatusOK, nil
 }
 
 func (s Storage) AddUser(chat_ID string, user_ID string) (int, error) {
@@ -170,19 +172,19 @@ func (s Storage) DropUserFromChat(user_ID string, chat_ID string) (int, error) {
 	return 200, nil
 }
 
-func (s Storage) CountMessages(chat_ID string) (int, error) {
+func (s Storage) CountMessages(chat_ID string, ch chan int) {
 	query := "SELECT COUNT(*) FROM messeges WHERE chat_id=$1"
 
 	count := s.db.QueryRowContext(s.context, query, chat_ID)
 	if count == nil {
-		return 0, errors.New("nothing found")
+		slog.Info("nothing found")
 	}
 
 	var quantity int
 	err := count.Scan(&quantity)
 	if err != nil {
-		return 0, err
+		slog.Info("error counting messages")
 	}
 
-	return quantity, nil
+	ch <- quantity
 }
