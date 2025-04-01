@@ -1,18 +1,16 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/Flikest/PingviMessenger/internal/entity"
+	"github.com/Flikest/PingviMessenger/pkg/jwt"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
+
 	"github.com/gorilla/websocket"
-	"github.com/savsgio/gotils/uuid"
 )
 
 var upgrader = websocket.Upgrader{
@@ -22,40 +20,23 @@ var upgrader = websocket.Upgrader{
 }
 
 type RequestMessage struct {
-	ID        string `json:"id"`
-	Content   string `json:"content"`
 	Operation string `json:"operation"`
+	Message   entity.Message
 }
 
 var chanDataFromTheStartPage chan []entity.Chat
-var chanCounterMessage chan int
 var chanAllMessageFromChat chan []entity.Message
+var chanMessage chan entity.Message
 
-func jwtPayloadFromRequest(tokenString string) (string, error) {
-
-	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("SECRET_KEY")), nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	result, err := json.Marshal(claims["sub"])
-	if err != nil {
-		slog.Info("Error: %s", err)
-		return "", err
-	}
-	return string(result), nil
+func sendMessageInСhat(conn websocket.Conn, ch chan entity.Message) {
+	go conn.WriteJSON(<-ch)
 }
-
-func sendMessageInchat(mesage_id uuid.UUID)
 
 // @Accept
 // @Router       ws://localhost:9000/chats/messenger/{id} [get]
 func (s Service) Сorrespondence(ctx *gin.Context) {
-
 	w, r := ctx.Writer, ctx.Request
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Info("failed connect to ws", err)
@@ -65,42 +46,38 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 
 	var token string = ctx.GetHeader("pinguiJWT")
 
-	pyload, err := jwtPayloadFromRequest(token)
+	pyload, err := jwt.JwtPayloadFromRequest(token)
 	if err != nil {
 		ctx.Redirect(302, "https://web-pingui/login/")
 	}
 
 	chat_ID := ctx.Query("chat_id")
 
-	go s.Storage.CountMessages(chat_ID, chanCounterMessage)
-
 	for {
 		var msg RequestMessage
-		err := conn.ReadJSON(msg)
 
+		err := conn.ReadJSON(msg)
 		if err != nil {
 			slog.Debug("ugh i don't want to accept this message", err)
 			return
 		}
 
-		if err := conn.WriteJSON(RequestMessage{}); err != nil {
+		if err := conn.WriteJSON(<-chanMessage); err != nil {
 			slog.Info("message not sent", err)
 			return
 		}
 
 		switch msg.Operation {
 		case "delete":
-			status, err := s.Storage.DelelteMessage(msg.ID)
+			status, err := s.Storage.DelelteMessage(msg.Message.)
 			if err != nil {
 				ctx.JSON(status, "the message was not updated!")
 			} else {
 				ctx.JSON(status, "message updated!")
 			}
 		case "update":
-
 			body := entity.Message{
 				Chat_ID:     chat_ID,
-				Message_ID:  <-chanCounterMessage,
 				Sender_ID:   pyload,
 				Content:     []byte(msg.Content),
 				SendingTime: time.Now(),
@@ -113,13 +90,6 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 			}
 
 		default:
-			messege := entity.Message{
-				Chat_ID:     chat_ID,
-				Message_ID:  <-chanCounterMessage + 1,
-				Sender_ID:   pyload,
-				Content:     []byte(msg.Content),
-				SendingTime: time.Now(),
-			}
 
 			s.Storage.AddMesage(messege)
 

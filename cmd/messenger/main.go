@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"os"
 
-	services "github.com/Flikest/PingviMessenger/internal/controller"
 	"github.com/Flikest/PingviMessenger/internal/handler"
+	services "github.com/Flikest/PingviMessenger/internal/services"
 	"github.com/Flikest/PingviMessenger/internal/storage"
 	"github.com/Flikest/PingviMessenger/migrations"
 	postgresql "github.com/Flikest/PingviMessenger/pkg/clientdb/postgresql"

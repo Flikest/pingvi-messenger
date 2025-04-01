@@ -139,8 +139,8 @@ func (s Storage) UpdateMessage(e entity.Message) (int, error) {
 	return 200, nil
 }
 
-func (s Storage) DelelteMessage(message_ID string) (int, error) {
-	query := "DELETE messeges from chats WHERE message_ID = $1"
+func (s Storage) DelelteMessage(chat_ID, message_ID string) (int, error) {
+	query := "DELETE messeges from chats WHERE message_id = $1 AND chat_id = $2"
 
 	_, err := s.db.ExecContext(s.context, query, message_ID)
 	if err != nil {
@@ -170,21 +170,4 @@ func (s Storage) DropUserFromChat(user_ID string, chat_ID string) (int, error) {
 		return 404, err
 	}
 	return 200, nil
-}
-
-func (s Storage) CountMessages(chat_ID string, ch chan int) {
-	query := "SELECT COUNT(*) FROM messeges WHERE chat_id=$1"
-
-	count := s.db.QueryRowContext(s.context, query, chat_ID)
-	if count == nil {
-		slog.Info("nothing found")
-	}
-
-	var quantity int
-	err := count.Scan(&quantity)
-	if err != nil {
-		slog.Info("error counting messages")
-	}
-
-	ch <- quantity
 }
