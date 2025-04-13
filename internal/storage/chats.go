@@ -48,7 +48,7 @@ func (s Storage) GetAllMessageFromChat(chat_ID string, ch chan []entity.Message)
 	ch <- result
 }
 
-func (s Storage) CreateChat(creator_ID string, e entity.Chat, ch chan uuid.UUID) {
+func (s Storage) CreateChat(creator_ID string, e entity.Chat) error {
 	id := uuid.New()
 
 	uniqueLink := fmt.Sprintf("http://pingui.org/messenger/?%s", id)
@@ -59,27 +59,39 @@ func (s Storage) CreateChat(creator_ID string, e entity.Chat, ch chan uuid.UUID)
 	_, err := s.db.ExecContext(s.context, queryChat, id, e.Name, e.Avatar, uniqueLink)
 	if err != nil {
 		slog.Info("failed to create chat: ", err)
+		return err
 	}
 
 	_, err = s.db.ExecContext(s.context, queryParticipants, id, creator_ID, true)
 	if err != nil {
 		slog.Info("error adding creator: ", err)
+		return err
 	}
 
-	ch <- id
+	return nil
 }
 
-func (s Storage) GetChat(chat_ID string, ch chan entity.Chat) {
-	query := "SELECT * FROM chats WHERE id=$1"
+func (s Storage) GetChat(chat_name string) ([]entity.Chat, error) {
+	query := "SELECT * FROM chats WHERE name=$1"
 
 	var chat entity.Chat
 
-	err := s.db.QueryRowContext(s.context, query, chat_ID).Scan(&chat.ID, &chat.Name, &chat.Avatar, &chat.UniqueLinToJoin, &chat.Last_seen)
+	rows, err := s.db.QueryContext(s.context, query, chat_name)
+
+	var result []entity.Chat
+	for rows.Next() {
+		var row entity.Chat
+		if err := rows.Scan(&chat.ID, &chat.Name, &chat.Avatar, &chat.UniqueLinToJoin, &chat.Last_seen); err != nil {
+			slog.Info("Couldn't find columns: ", err)
+		}
+		result = append(result, row)
+	}
+
 	if err != nil {
 		slog.Info("chat not found: ", err)
 	}
 
-	ch <- chat
+	return result, err
 }
 
 func (s Storage) UpdateChat(body entity.Chat) (int, error) {
@@ -115,7 +127,7 @@ func (s Storage) AddMesage(message entity.Message) (int, error) {
 	return http.StatusOK, nil
 }
 
-func (s Storage) GetMessage(chat_ID string, message_ID string, ch chan entity.Message) {
+func (s Storage) GetMessage(chat_ID string, message_ID string) (entity.Message, error) {
 	query := "SELECT mesegeges FROM chats where chat_id=$1 AND messege_id=$2"
 
 	var message entity.Message
@@ -124,8 +136,7 @@ func (s Storage) GetMessage(chat_ID string, message_ID string, ch chan entity.Me
 	if row == nil {
 		slog.Info("message not found!")
 	}
-
-	ch <- message
+	return message, nil
 }
 
 func (s Storage) UpdateMessage(e entity.Message) (int, error) {
@@ -139,7 +150,7 @@ func (s Storage) UpdateMessage(e entity.Message) (int, error) {
 	return 200, nil
 }
 
-func (s Storage) DelelteMessage(chat_ID, message_ID string) (int, error) {
+func (s Storage) DelelteMessage(chat_ID string, message_ID int) (int, error) {
 	query := "DELETE messeges from chats WHERE message_id = $1 AND chat_id = $2"
 
 	_, err := s.db.ExecContext(s.context, query, message_ID)

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	services "github.com/Flikest/PingviMessenger/internal/controller"
+	services "github.com/Flikest/PingviMessenger/internal/services"
 	"github.com/Flikest/PingviMessenger/pkg/middleware"
 	"github.com/gin-gonic/gin"
 

@@ -8,7 +8,6 @@ import (
 	"github.com/Flikest/PingviMessenger/internal/handler"
 	services "github.com/Flikest/PingviMessenger/internal/services"
 	"github.com/Flikest/PingviMessenger/internal/storage"
-	"github.com/Flikest/PingviMessenger/migrations"
 	postgresql "github.com/Flikest/PingviMessenger/pkg/clientdb/postgresql"
 	"github.com/Flikest/PingviMessenger/pkg/logger"
 	"github.com/Flikest/PingviMessenger/rabbitmq"
@@ -40,8 +39,6 @@ func main() {
 	if err != nil {
 		log.Info("error connecting to database")
 	}
-
-	migrations.CreateMigrations(db, "file://pingviMessenger/migrations/sql/")
 
 	storage := storage.NewStorage(db, context.Background())
 	services := services.NewServices(storage)
