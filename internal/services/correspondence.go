@@ -8,7 +8,30 @@ import (
 	"github.com/Flikest/PingviMessenger/internal/entity"
 	"github.com/Flikest/PingviMessenger/pkg/jwt"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
+
+type RequestMessage struct {
+	Operation string `json:"operation"`
+	Message   entity.Message
+}
+
+var (
+	ChanMessageError = make(chan error)
+	ChanMessage      = make(chan entity.Message)
+)
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func sendMessage(ch chan entity.Message, conn *websocket.Conn) {
+	if err := conn.WriteJSON(<-ch); err != nil {
+		slog.Info("message sending error: ", err)
+	}
+}
 
 func (s Service) Сorrespondence(ctx *gin.Context) {
 	w, r := ctx.Writer, ctx.Request
@@ -31,21 +54,22 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 
 	for {
 		var msg RequestMessage
-
-		err := conn.ReadJSON(msg)
-		if err != nil {
-			slog.Debug("ugh i don't want to accept this message", err)
-			return
+		if err := conn.ReadJSON(msg); err != nil {
+			slog.Info("message reading error: ", err)
 		}
+
+		ChanMessage <- msg.Message
 
 		switch msg.Operation {
 		case "delete":
-			status, err := s.Storage.DelelteMessage(msg.Message.Chat_ID, msg.Message.Message_ID)
-			if err != nil {
-				ctx.JSON(status, "the message was not updated!")
+
+			go s.Storage.DeleteMessage(ChanMessageError, msg.Message.Chat_ID, msg.Message.Message_ID)
+			if <-ChanMessageError != nil {
+				slog.Info("error deleting message: ", <-ChanMessageError)
 			} else {
-				ctx.JSON(status, "message updated!")
+				go sendMessage(ChanMessage, conn)
 			}
+
 		case "update":
 			body := entity.Message{
 				Chat_ID:     chat_ID,
@@ -53,20 +77,20 @@ func (s Service) Сorrespondence(ctx *gin.Context) {
 				Content:     []byte(msg.Message.Content),
 				SendingTime: time.Now(),
 			}
-			status, err := s.Storage.UpdateMessage(body)
-			if err != nil {
-				ctx.JSON(status, "the message was not updated!")
+			go s.Storage.UpdateMessage(ChanMessageError, body)
+			if <-ChanMessageError != nil {
+				slog.Info("error updating message: ", <-ChanMessageError)
 			} else {
-				ctx.JSON(status, "message updated!")
+				go sendMessage(ChanMessage, conn)
 			}
 
 		default:
-
-			s.Storage.AddMesage(msg.Message)
-
-			err := conn.WriteJSON(msg)
-			if err != nil {
-				ctx.JSON(http.StatusOK, "the message was not sent")
+			go s.Storage.AddMesage(ChanMessageError, msg.Message)
+			go sendMessage(ChanMessage, conn)
+			if <-ChanMessageError != nil {
+				slog.Info("error added message: ", <-ChanMessageError)
+			} else {
+				go sendMessage(ChanMessage, conn)
 			}
 
 		}

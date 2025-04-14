@@ -31,13 +31,6 @@ func (h Handler) InitRouter() *gin.Engine {
 		v1.DELETE("/:chat_id", h.Service.DeleteChat)
 	}
 
-	v2 := router.Group("/message")
-
-	v2.Use(middleware.IsAuthorized)
-	{
-		v2.GET("/:message_id", h.Service.GetMessage)
-	}
-
 	v3 := router.Group("/users")
 
 	v3.Use(middleware.IsAuthorized)
