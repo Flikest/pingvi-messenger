@@ -39,18 +39,6 @@ func (s Storage) AddMesage(ch chan error, message entity.Message) {
 	slog.Info("messages added")
 }
 
-func (s Storage) GetMessage(chat_ID string, message_ID string, ch chan entity.Message) {
-	query := "SELECT mesegeges FROM chats where chat_id=$1 AND messege_id=$2"
-
-	var message entity.Message
-
-	row := s.db.QueryRowContext(s.context, query, chat_ID, message_ID).Scan(&message.Chat_ID, &message.Message_ID, &message.Sender_ID, &message.Content, &message.SendingTime)
-	if row == nil {
-		slog.Info("message not found!")
-	}
-	ch <- message
-}
-
 func (s Storage) UpdateMessage(ch chan error, e entity.Message) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
