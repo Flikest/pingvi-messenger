@@ -5,5 +5,5 @@ tasks:
     dir: "{{.pingvimessenger}}"
     cmds:
       - docker-compose up -d
-      - migrate -source file://migrations/sql/ -database postgres://localhost:5431/messanger?sslmode=disable up
+      - go run cmd/migrator/main.go
       - go run cmd/messenger/main.go
